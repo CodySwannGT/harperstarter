@@ -56,19 +56,28 @@ export default [
     },
   },
   {
-    // Epic #383 Phase 0 Task #2 (issue #392): src/types/harper-schema.ts
-    // mirrors every `@table` row interface from harper-app/schema.graphql
-    // 1:1. With 38 tables it crosses the project-wide max-lines threshold,
-    // but splitting it into multiple files defeats the "single source of
-    // truth for Harper row shapes" contract that every Phase 1+ file-strip
-    // task imports from. The schema GraphQL file itself is the same shape
-    // on disk; this TS mirror is intentionally co-extensive. Per the
-    // Epic #383 rule "relax the rule in config instead of disabling in
-    // source," override max-lines here rather than adding an
-    // eslint-disable comment to the scaffolded file.
-    files: ["src/types/harper-schema.ts"],
+    // Test files: extend the upstream test relaxations (which already turn
+    // off functional/immutable-data, functional/no-let,
+    // max-lines-per-function, and no-restricted-syntax) with a few more
+    // rules that produce noise without value in test code:
+    //   - max-lines: fixture-heavy suites legitimately run long; splitting
+    //     them by topic-per-file fragments cohesion without improving
+    //     readability.
+    //   - jsdoc/require-jsdoc: tests are self-documenting through their
+    //     describe/it names; per-helper JSDoc is overhead.
+    //   - sonarjs/assertions-in-tests: false-positives on tests that
+    //     assert through Playwright `expect` helpers or capture-callback
+    //     side effects.
+    //   - sonarjs/publicly-writable-directories: tests legitimately use
+    //     `os.tmpdir()` / `/tmp` for synthetic fixtures.
+    // Per the "relax the rule in config instead of suppressing in source"
+    // pattern, these belong here rather than as file-level suppressions.
+    files: ["tests/**/*.test.ts", "tests/**/*.ts", "**/__tests__/**/*.ts"],
     rules: {
       "max-lines": "off",
+      "jsdoc/require-jsdoc": "off",
+      "sonarjs/assertions-in-tests": "off",
+      "sonarjs/publicly-writable-directories": "off",
     },
   },
 ];
