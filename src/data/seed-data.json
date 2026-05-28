@@ -1,0 +1,5 @@
+{
+  "greetings": [
+    { "id": "hello-world", "message": "Hello, world." }
+  ]
+}

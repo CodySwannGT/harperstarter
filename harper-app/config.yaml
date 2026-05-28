@@ -1,0 +1,19 @@
+# Harper component config — declares this directory as a Harper application.
+# Docs: https://docs.harperdb.io/docs/developers/components
+
+# Auto-export tables defined in schema.graphql at REST routes.
+graphqlSchema:
+  files: '*.graphql'
+
+# HTTP REST interface (port 9926 by default) for every @export-ed table
+# and for the custom resources below.
+rest: true
+
+# Custom JS resources (e.g., Hello) backing the web UI. See resources.js.
+jsResource:
+  files: 'resources.js'
+
+# Static web assets served at the same origin as REST so the browser can
+# `fetch('/Hello')` without CORS. GET / serves index.html.
+static:
+  files: 'web/**'

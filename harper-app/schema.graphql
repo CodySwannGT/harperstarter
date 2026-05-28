@@ -1,0 +1,20 @@
+# Harper schema for the starter template.
+#
+# This is a deliberately tiny "hello world" schema. Replace it with the
+# tables your application needs and update `src/scripts/seed.ts` and
+# `src/scripts/verify.ts` accordingly.
+#
+# Directives used:
+#   @table         — declare as a table
+#   @export        — expose via REST under /<TableName>
+#   @primaryKey    — PK column
+#   @indexed       — secondary index
+#   @createdTime   — auto-managed insert timestamp
+#   @updatedTime   — auto-managed update timestamp
+
+type Greeting @table @export {
+  id: ID @primaryKey
+  message: String! @indexed
+  createdAt: Date @createdTime
+  updatedAt: Date @updatedTime
+}

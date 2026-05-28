@@ -1,0 +1,17 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.your-org/your-project",
+  "title": "Your Project",
+  "description": "Harper Fabric MCP server for your-project.",
+  "version": "0.0.0",
+  "repository": {
+    "url": "https://github.com/your-org/your-project",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://your-project.example.com/mcp"
+    }
+  ]
+}
