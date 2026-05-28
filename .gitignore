@@ -185,6 +185,7 @@ tasks.json
 **/.claude/settings.local.json
 **/.claude/debug/
 **/.claude/worktrees/
+**/.claude/scratch/
 **/.claude/scheduled_tasks.lock
 .roo
 .roo/
@@ -230,6 +231,12 @@ expo-env.d.ts
 harper-app/resources.js
 harper-app/web/**/*.js
 harper-app/web/**/*.js.map
+# Generated mirror of src/lib/. The harper component imports a small
+# number of shared helpers via `./lib/...` after the build rewrites
+# the `../lib/...` imports emitted by tsc. The build copies dist/lib/
+# → harper-app/lib/ on every run; nothing here is source.
+harper-app/lib/**/*.js
+harper-app/lib/**/*.js.map
 .lisabak/
 .lisabak
 # END: AI GUARDRAILS HARPER-FABRIC
