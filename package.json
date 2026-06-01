@@ -1,6 +1,8 @@
 {
   "scripts": {
     "build": "tsc && node dist/build/build.js",
+    "postinstall": "[ -n \"$CI\" ] || node node_modules/@codyswann/lisa/dist/index.js --yes --skip-git-check . 2>/dev/null || true",
+    "test:integration": "vitest run tests/integration --passWithNoTests",
     "seed": "bun run build && node dist/scripts/seed.js",
     "verify": "bun run build && node dist/scripts/verify.js",
     "dev:server": "bun run build && node dist/scripts/dev_server.js",
@@ -9,8 +11,8 @@
     "bootstrap": "bash scripts/bootstrap.sh",
     "setup:deploy-key": "setup-deploy-key",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
-    "test:cov": "vitest run --coverage --passWithNoTests",
+    "test": "vitest run",
+    "test:cov": "vitest run --coverage",
     "start": "harperdb start",
     "stop": "harperdb stop",
     "status": "harperdb status",
@@ -26,7 +28,7 @@
     "knip:fix": "knip --fix",
     "sg:scan": "ast-grep scan",
     "prepare": "husky install || true",
-    "postinstall": "[ -n \"$CI\" ] || node node_modules/@codyswann/lisa/dist/index.js --yes --skip-git-check . 2>/dev/null || true"
+    "test:unit": "vitest run --exclude='**/integration/**'"
   },
   "engines": {
     "npm": "please-use-bun",
@@ -45,7 +47,7 @@
   },
   "devDependencies": {
     "@ast-grep/cli": "^0.40.4",
-    "@codyswann/lisa": "^2.98.1",
+    "@codyswann/lisa": "^2.106.0",
     "@commitlint/cli": "^20.3.1",
     "@commitlint/config-conventional": "^20.3.1",
     "@eslint-community/eslint-plugin-eslint-comments": "^4.5.0",

@@ -3,7 +3,7 @@
 ## Complete Directory Structure
 
 ```
-your-project-frontend/
+thumbwar-frontend/
 ├── app/                                    # Expo Router - PAGES live here
 │   ├── (auth)/                            # Auth route group
 │   │   ├── login.tsx                      # Login page
