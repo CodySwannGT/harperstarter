@@ -7,6 +7,13 @@
  * `docs/fabric-runbook.md` for the deploy contract.
  */
 
+/**
+ * Prints the deploy command for the Harper component at `harper-app/`.
+ *
+ * Acts as the starter's deploy entrypoint: it reports the command that would
+ * run against `HDB_TARGET_URL`, or prompts for the variable when unset.
+ * @returns Promise that resolves once the deploy plan has been printed.
+ */
 async function main(): Promise<void> {
   const target = process.env.HDB_TARGET_URL;
   if (!target) {

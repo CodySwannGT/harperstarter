@@ -1,13 +1,21 @@
 import { readFile } from "node:fs/promises";
 import { harperConfig } from "../lib/harper.js";
 
-interface SeedFile {
-  readonly greetings: ReadonlyArray<{
-    readonly id: string;
-    readonly message: string;
-  }>;
+/** A single greeting entry in the seed file. */
+interface SeedGreeting {
+  readonly id: string;
+  readonly message: string;
 }
 
+/** Shape of `src/data/seed-data.json` consumed by the seeder. */
+interface SeedFile {
+  readonly greetings: ReadonlyArray<SeedGreeting>;
+}
+
+/**
+ * Seeds the local Harper `Greeting` table from `src/data/seed-data.json`.
+ * @returns Promise that resolves once every greeting has been PUT.
+ */
 async function main(): Promise<void> {
   const config = harperConfig();
   const seed = JSON.parse(
