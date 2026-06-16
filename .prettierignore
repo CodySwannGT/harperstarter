@@ -42,6 +42,10 @@ amplify
 # No-op for projects without an OpenCode mirror.
 .opencode
 
+# Lisa-generated mutation-testing helper. Generated output, not a source
+# formatting input. Keep it out of the format gate.
+scripts/lisa-mutation.mjs
+
 # BEGIN: AI GUARDRAILS HARPER-FABRIC
 
 # Harper/Fabric generated web output and scraped research captures are not
