@@ -47,7 +47,7 @@
   },
   "devDependencies": {
     "@ast-grep/cli": "^0.40.4",
-    "@codyswann/lisa": "^2.140.0",
+    "@codyswann/lisa": "^2.171.3",
     "@commitlint/cli": "^20.3.1",
     "@commitlint/config-conventional": "^20.3.1",
     "@eslint-community/eslint-plugin-eslint-comments": "^4.5.0",
@@ -79,12 +79,14 @@
   "resolutions": {
     "@isaacs/brace-expansion": "^5.0.1",
     "axios": ">=1.15.2",
-    "handlebars": ">=4.7.9"
+    "handlebars": ">=4.7.9",
+    "ws": ">=8.21.0"
   },
   "overrides": {
     "@isaacs/brace-expansion": "^5.0.1",
     "axios": ">=1.15.2",
-    "handlebars": ">=4.7.9"
+    "handlebars": ">=4.7.9",
+    "ws": ">=8.21.0"
   },
   "trustedDependencies": [
     "@ast-grep/cli",
