@@ -26,6 +26,13 @@ import type { ViteUserConfig } from "vitest/config";
 
 const config: ViteUserConfig = {
   test: {
+    // Browser regression + deployed-cluster tests are slower and contend under
+    // parallelism; a bounded worker pool with generous timeouts absorbs that
+    // variance without masking real regressions (a reintroduced full-table scan
+    // still blows past even these budgets).
+    testTimeout: 120_000,
+    hookTimeout: 120_000,
+    maxWorkers: 4,
     // Lisa governance forces `test`/`test:cov` to a bare `vitest run`, dropping
     // the `bun run build && bun run test:setup:playwright` preamble the browser
     // regression tests require. Reinstate those preconditions via globalSetup so
