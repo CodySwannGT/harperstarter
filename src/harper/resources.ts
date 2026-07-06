@@ -31,10 +31,17 @@ export class Hello extends Resource {
    * @returns The first available greeting message, or a default greeting.
    */
   async get(): Promise<HelloPayload> {
-    for await (const row of tables.Greeting.search()) {
-      const greeting = row as GreetingRecord;
-      if (greeting.message) return { message: greeting.message };
-    }
-    return { message: "Hello, world." };
+    // Bounded, sorted query drained in full with `Array.fromAsync`. Returning
+    // early from a `for await (… of table.search())` loop abandons the
+    // iterator and leaks its open read transaction, so always drain the
+    // stream — here bounded to a single row via `limit` so we never scan the
+    // whole table. `sort` picks the most-recent Greeting by insert time.
+    const [latest] = (await Array.fromAsync(
+      tables.Greeting.search({
+        sort: { attribute: "createdAt", descending: true },
+        limit: 1,
+      })
+    )) as readonly GreetingRecord[];
+    return { message: latest?.message ?? "Hello, world." };
   }
 }
