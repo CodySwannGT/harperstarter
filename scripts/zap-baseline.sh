@@ -11,7 +11,6 @@ LOCAL_TARGETS=("http://localhost:9926" "http://host.docker.internal:9926")
 SCAN_TARGET_URL="$TARGET_URL"
 ZAP_RULES_FILE="${ZAP_RULES_FILE:-.zap/baseline.conf}"
 REPORT_FILE="zap-report.html"
-SERVER_PID=""
 
 cd "$PROJECT_ROOT"
 
@@ -37,9 +36,9 @@ for local_target in "${LOCAL_TARGETS[@]}"; do
 done
 
 cleanup() {
-  if [ -n "${SERVER_PID:-}" ]; then
-    echo "==> Stopping Harper app..."
-    kill "$SERVER_PID" 2>/dev/null || true
+  if [ -n "${HARPER_STARTED:-}" ]; then
+    echo "==> Stopping Harper..."
+    HDB_ROOT="$HDB_ROOT" "$HARPER_BIN" stop >/dev/null 2>&1 || true
   fi
 }
 trap cleanup EXIT
@@ -56,9 +55,36 @@ if [ "$should_start_local" = true ]; then
     exit 1
   fi
 
-  echo "==> Starting Harper app locally..."
-  "$HARPER_BIN" run harper-app &
-  SERVER_PID=$!
+  HDB_ROOT="${HDB_ROOT:-$HOME/.harperdb}"
+
+  # A bare `harper run` neither performs first-run initialization (keys,
+  # config) nor registers the app, so nothing ever listens on the scan port.
+  # Mirror the starter bootstrap flow instead: non-interactive install,
+  # register harper-app as a component, then start the Harper service.
+  if [ ! -f "$HDB_ROOT/harperdb-config.yaml" ]; then
+    echo "==> Installing HarperDB (non-interactive)..."
+    # Env answers every first-run prompt (Terms & Conditions, admin
+    # credentials, install destination). HTTP_PORT must stay 9926 to match
+    # the scan target URL above.
+    TC_AGREEMENT="${TC_AGREEMENT:-yes}" \
+    HDB_ROOT="$HDB_ROOT" \
+    HDB_ADMIN_USERNAME="${HDB_ADMIN_USERNAME:-admin}" \
+    HDB_ADMIN_PASSWORD="${HDB_ADMIN_PASSWORD:-zap-baseline-local}" \
+    OPERATIONSAPI_NETWORK_PORT="${OPERATIONSAPI_NETWORK_PORT:-9925}" \
+    HTTP_PORT="${HTTP_PORT:-9926}" \
+    ANALYTICS_ENABLED="${ANALYTICS_ENABLED:-false}" \
+    LOGGING_LEVEL="${LOGGING_LEVEL:-warn}" \
+      "$HARPER_BIN" install
+  fi
+
+  echo "==> Registering harper-app component..."
+  mkdir -p "$HDB_ROOT/components"
+  ln -sfn "$PROJECT_ROOT/harper-app" \
+    "$HDB_ROOT/components/$(basename "$PROJECT_ROOT")"
+
+  echo "==> Starting Harper..."
+  HDB_ROOT="$HDB_ROOT" "$HARPER_BIN" start
+  HARPER_STARTED=1
 
   echo "==> Waiting for Harper app..."
   retries=30
@@ -78,21 +104,33 @@ zap_args="-t $SCAN_TARGET_URL"
 
 if [ -f "$ZAP_RULES_FILE" ]; then
   echo "    Using rules file: $ZAP_RULES_FILE"
-  zap_args="$zap_args -c /zap/wrk/$(basename "$ZAP_RULES_FILE")"
-  mount_rules="-v $(dirname "$(realpath "$ZAP_RULES_FILE")"):/zap/wrk:ro"
-else
-  mount_rules=""
+  # The project root is bind-mounted at /zap/wrk (below), so the rules file is
+  # already reachable there at its project-relative path. Reference it in place
+  # rather than adding a second -v to /zap/wrk (which errors with "Duplicate
+  # mount point: /zap/wrk").
+  rules_rel="$(realpath --relative-to="$(pwd)" "$ZAP_RULES_FILE")"
+  zap_args="$zap_args -c /zap/wrk/$rules_rel"
 fi
 
+# The ZAP image runs as the unprivileged `zap` user (uid 1000). The scan
+# target dir is bind-mounted from the CI checkout (owned by the runner user),
+# so `zap` cannot create its report files there and zap-baseline.py aborts with
+# `PermissionError: /zap/wrk/zap-report.html`. Make the mount root writable by
+# that user before the run (CI workspace is ephemeral).
+chmod o+w "$(pwd)"
+
+# -I makes ZAP report warnings without failing the job; only FAIL-marked rules
+# in .zap/baseline.conf block (the config documents WARN as "report but do not
+# fail" — e.g. missing security headers on the Harper REST endpoint).
 docker run --rm \
   --add-host=host.docker.internal:host-gateway \
   -v "$(pwd)":/zap/wrk/:rw \
-  $mount_rules \
   ghcr.io/zaproxy/zaproxy:stable \
   zap-baseline.py $zap_args \
   -r "$REPORT_FILE" \
   -J zap-report.json \
   -w zap-report.md \
+  -I \
   -l WARN || zap_exit=$?
 
 if [ -f "$REPORT_FILE" ]; then
@@ -100,7 +138,7 @@ if [ -f "$REPORT_FILE" ]; then
 fi
 
 if [ "${zap_exit:-0}" -ne 0 ]; then
-  echo "ZAP found medium+ severity findings (exit code: $zap_exit)."
+  echo "ZAP found FAIL-level findings or errored (exit code: $zap_exit)."
   exit "$zap_exit"
 fi
 
