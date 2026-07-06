@@ -382,6 +382,18 @@ function isHarperAuthTokens(value: unknown): value is HarperAuthTokens {
 }
 
 /**
+ * Requires a cluster id for control-plane token minting.
+ * @param creds - Resolved Harper credentials.
+ * @returns The cluster id.
+ */
+function requireClusterId(creds: HarperCreds): string {
+  if (!creds.clusterId) {
+    throw new StudioError("missing HARPER_CLUSTER_ID for token minting", 0);
+  }
+  return creds.clusterId;
+}
+
+/**
  * Mint a Harper-native JWT pair for the data plane. Works through
  * Studio's proxy (Fabric) or directly against the cluster ops API
  * if it's reachable on :9925 (self-hosted / residential network).
@@ -391,19 +403,12 @@ function isHarperAuthTokens(value: unknown): value is HarperAuthTokens {
 export async function createAuthTokens(
   creds: HarperCreds = loadCreds()
 ): Promise<HarperAuthTokens> {
-  if (!creds.clusterId) {
-    throw new StudioError("missing HARPER_CLUSTER_ID for token minting", 0);
-  }
-  const studio = new StudioSession(creds);
-  await studio.login();
-  const r = await studio.clusterOp(
-    creds.clusterId,
-    "create_authentication_tokens",
-    {
-      username: creds.username,
-      password: creds.password,
-    }
-  );
+  const clusterId = requireClusterId(creds);
+  const studio = await new StudioSession(creds).login();
+  const r = await studio.clusterOp(clusterId, "create_authentication_tokens", {
+    username: creds.username,
+    password: creds.password,
+  });
   if (r.status !== 200 || !isHarperAuthTokens(r.body)) {
     throw new StudioError(
       `create_authentication_tokens failed: ${r.status} ${JSON.stringify(r.body).slice(0, 200)}`,

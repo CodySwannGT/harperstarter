@@ -35,30 +35,49 @@ interface RootRenderFacts {
  */
 async function smokeRoot(page: Page): Promise<readonly Check[]> {
   const response = await smokeGoto(page, `${BASE}/`).catch(() => null);
-  if (!response) {
-    return [check(false, "root: GET / responds 2xx", "navigation failed")];
-  }
+  return response
+    ? await rootContentChecks(page, response)
+    : [check(false, "root: GET / responds 2xx", "navigation failed")];
+}
+
+/**
+ * Waits for the root document to render content, then reads it.
+ * @param page - Browser page rendering the root route.
+ * @returns The rendered root document facts.
+ */
+async function readRootFacts(page: Page): Promise<RootRenderFacts> {
   await page
     .waitForFunction(
       () => document.body.innerText.trim().length > 0,
       undefined,
-      {
-        timeout: ROOT_CONTENT_TIMEOUT,
-      }
+      { timeout: ROOT_CONTENT_TIMEOUT }
     )
     .catch(() => undefined);
-  const facts = await page.evaluate(
+  return await page.evaluate(
     (): RootRenderFacts => ({
       bodyLength: document.body.innerText.trim().length,
       hasHeading: Boolean(document.querySelector("h1")),
     })
   );
+}
+
+/**
+ * Reads the loaded root document and produces its content assertions.
+ * @param page - Browser page rendering the root route.
+ * @param response - The successful root navigation response.
+ * @returns Smoke assertions for the root page content.
+ */
+async function rootContentChecks(
+  page: Page,
+  response: import("playwright").Response
+): Promise<readonly Check[]> {
+  const facts = await readRootFacts(page);
   await page.screenshot({ path: `${SHOTS}/01-root.png`, fullPage: true });
   return [
     check(
-      Boolean(response?.ok()),
+      response.ok(),
       "root: GET / responds 2xx",
-      `status ${response?.status() ?? "none"}`
+      `status ${response.status()}`
     ),
     check(
       facts.bodyLength > 0,
