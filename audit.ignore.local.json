@@ -34,6 +34,11 @@
       "id": "GHSA-ph9p-34f9-6g65",
       "package": "tmp",
       "reason": "Transitive through the HarperDB local CLI (harperdb > inquirer > external-editor > tmp). Project code does not invoke inquirer / external-editor at build or runtime, and the deployed Fabric app bundle does not include this dependency tree."
+    },
+    {
+      "id": "GHSA-86vw-mfpg-wwv9",
+      "package": "jsonata",
+      "reason": "Transitive through the HarperDB local CLI/runtime (harperdb pins jsonata@1.8.7 exactly; the only fix is jsonata >= 2.2.0, a breaking major upgrade that harperdb has not adopted). The DoS requires evaluating attacker-controlled JSONata expressions via the $toMillis function; project code does not evaluate untrusted JSONata, and the deployed Fabric app runs on Harper-managed infrastructure rather than this npm dependency tree. Remove once harperdb upgrades to jsonata >= 2.2.0."
     }
   ]
 }
