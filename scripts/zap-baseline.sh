@@ -91,16 +91,17 @@ zap_args="-t $SCAN_TARGET_URL"
 
 if [ -f "$ZAP_RULES_FILE" ]; then
   echo "    Using rules file: $ZAP_RULES_FILE"
-  zap_args="$zap_args -c /zap/wrk/$(basename "$ZAP_RULES_FILE")"
-  mount_rules="-v $(dirname "$(realpath "$ZAP_RULES_FILE")"):/zap/wrk:ro"
-else
-  mount_rules=""
+  # The project root is bind-mounted at /zap/wrk (below), so the rules file is
+  # already reachable there at its project-relative path. Reference it in place
+  # rather than adding a second -v to /zap/wrk (which errors with "Duplicate
+  # mount point: /zap/wrk").
+  rules_rel="$(realpath --relative-to="$(pwd)" "$ZAP_RULES_FILE")"
+  zap_args="$zap_args -c /zap/wrk/$rules_rel"
 fi
 
 docker run --rm \
   --add-host=host.docker.internal:host-gateway \
   -v "$(pwd)":/zap/wrk/:rw \
-  $mount_rules \
   ghcr.io/zaproxy/zaproxy:stable \
   zap-baseline.py $zap_args \
   -r "$REPORT_FILE" \
