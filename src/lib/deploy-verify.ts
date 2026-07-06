@@ -38,7 +38,7 @@ async function fetchWithTimeout(
  * @param source - JavaScript module text from `/version.js`.
  * @returns The version string, or an empty string when malformed.
  */
-export function parseVersionModule(source: string): string {
+function parseVersionModule(source: string): string {
   return /APP_VERSION\s*=\s*["']([^"']+)["']/.exec(source)?.[1] ?? "";
 }
 

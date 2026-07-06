@@ -25,7 +25,7 @@ const NAVIGATION_RETRY_DELAY_MS = 1500;
  * @param baseUrl - Raw smoke target from the environment.
  * @returns The base URL without trailing slash characters.
  */
-export function normalizeSmokeBaseUrl(baseUrl: string): string {
+function normalizeSmokeBaseUrl(baseUrl: string): string {
   return baseUrl.endsWith("/")
     ? normalizeSmokeBaseUrl(baseUrl.slice(0, -1))
     : baseUrl;
@@ -35,7 +35,7 @@ export const BASE = normalizeSmokeBaseUrl(
   process.env.BASE_URL || DEFAULT_BASE_URL
 );
 export const SHOTS = resolve("tests/screenshots");
-export const isLocalDev = /^http:\/\/(127\.0\.0\.1|localhost)/.test(BASE);
+const isLocalDev = /^http:\/\/(127\.0\.0\.1|localhost)/.test(BASE);
 
 /** One smoke assertion produced by a scenario. */
 export interface Check {
@@ -48,7 +48,7 @@ export interface Check {
  * @param label - Human-readable assertion text.
  * @returns A passing check record.
  */
-export function pass(label: string): Check {
+function pass(label: string): Check {
   return { label, passed: true };
 }
 
@@ -108,7 +108,7 @@ async function retryAttempt<T>(
  * @param delayMs - Base delay between attempts.
  * @returns The action result from the first successful attempt.
  */
-export async function retryAsync<T>(
+async function retryAsync<T>(
   action: () => Promise<T>,
   attempts: number,
   delayMs: number
@@ -211,7 +211,7 @@ export async function awaitDeployedClusterStable(page: Page): Promise<void> {
  * @param source - JavaScript module text from `/version.js`.
  * @returns The version string, or an empty string when malformed.
  */
-export function parseVersionModule(source: string): string {
+function parseVersionModule(source: string): string {
   return /APP_VERSION\s*=\s*["']([^"']+)["']/.exec(source)?.[1] ?? "";
 }
 
@@ -223,7 +223,7 @@ export function parseVersionModule(source: string): string {
  * check is still meaningful when run by hand against local Harper.
  * @returns The expected `APP_VERSION`, or an empty string when unavailable.
  */
-export async function expectedRuntimeVersion(): Promise<string> {
+async function expectedRuntimeVersion(): Promise<string> {
   const fromEnv = process.env.SMOKE_EXPECTED_VERSION;
   if (fromEnv) return fromEnv;
   const manifest = JSON.parse(
