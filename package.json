@@ -7,6 +7,8 @@
     "verify": "bun run build && node dist/scripts/verify.js",
     "dev:server": "bun run build && node dist/scripts/dev_server.js",
     "deploy": "bun run build && node dist/scripts/deploy.js",
+    "smoke": "bun run build && bun run smoke:run",
+    "smoke:run": "bun tests/web_smoke.ts || (echo '::warning::smoke first attempt failed; retrying once. A deterministic regression fails both runs; only a transient cluster failure should pass on retry — investigate if this recurs.' && bun tests/web_smoke.ts)",
     "test:e2e": "bash scripts/e2e-local-harper.sh",
     "bootstrap": "bash scripts/bootstrap.sh",
     "setup:deploy-key": "setup-deploy-key",
