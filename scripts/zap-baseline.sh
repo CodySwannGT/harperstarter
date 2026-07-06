@@ -112,6 +112,13 @@ if [ -f "$ZAP_RULES_FILE" ]; then
   zap_args="$zap_args -c /zap/wrk/$rules_rel"
 fi
 
+# The ZAP image runs as the unprivileged `zap` user (uid 1000). The scan
+# target dir is bind-mounted from the CI checkout (owned by the runner user),
+# so `zap` cannot create its report files there and zap-baseline.py aborts with
+# `PermissionError: /zap/wrk/zap-report.html`. Make the mount root writable by
+# that user before the run (CI workspace is ephemeral).
+chmod o+w "$(pwd)"
+
 # -I makes ZAP report warnings without failing the job; only FAIL-marked rules
 # in .zap/baseline.conf block (the config documents WARN as "report but do not
 # fail" — e.g. missing security headers on the Harper REST endpoint).
@@ -131,7 +138,7 @@ if [ -f "$REPORT_FILE" ]; then
 fi
 
 if [ "${zap_exit:-0}" -ne 0 ]; then
-  echo "ZAP found medium+ severity findings (exit code: $zap_exit)."
+  echo "ZAP found FAIL-level findings or errored (exit code: $zap_exit)."
   exit "$zap_exit"
 fi
 
