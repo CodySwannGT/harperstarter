@@ -1,12 +1,14 @@
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
 import { join } from "node:path";
+import { promisify } from "node:util";
 
-const WEB_ASSET_VERSION = "20260521-media";
 const HARPER_WEB_DIR = "harper-app/web";
 const HARPER_APP_DIR = "harper-app";
+const DIST_WEB_DIR = "dist/web";
 const PACKAGE_JSON = "package.json";
-const JS_IMPORT_RE =
-  /(\bfrom\s+["']|\bimport\s*\(\s*["']|\bimport\s+["'])(\.{1,2}\/[^"']+\.js)(["'])/g;
+const VERSION_MODULE = "version.js";
+const execFileAsync = promisify(execFile);
 
 /** Minimal package fields needed for generated browser metadata. */
 interface PackageManifest {
@@ -14,21 +16,87 @@ interface PackageManifest {
 }
 
 /**
- * Copies generated browser modules and adds cache-busting import versions.
+ * Bundles generated browser modules into Harper's static web root and writes
+ * the version marker.
  * @returns Promise that resolves after generated web files are deploy-ready.
  */
 async function copyGeneratedWeb(): Promise<void> {
-  await writeGeneratedVersionModule();
   await mkdir(HARPER_WEB_DIR, { recursive: true });
-  await cp("dist/web", HARPER_WEB_DIR, {
-    recursive: true,
-    filter: source => source.endsWith(".js") || !source.includes("."),
-  });
-  await versionGeneratedWebModules(HARPER_WEB_DIR);
+  await removeGeneratedWebJavaScript(HARPER_WEB_DIR);
+  await bundleWebEntrypoints();
+  await writeGeneratedVersionModule();
 }
 
 /**
- * Writes the package version into the browser bundle at build time.
+ * Removes previously generated browser JavaScript so a deploy cannot retain a
+ * stale helper module after the page entries are re-bundled.
+ * @param dir - Static web directory to clean recursively.
+ * @returns Promise that resolves once stale JavaScript is removed.
+ */
+async function removeGeneratedWebJavaScript(dir: string): Promise<void> {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await removeGeneratedWebJavaScript(path);
+      continue;
+    }
+    if (entry.name.endsWith(".js")) await rm(path, { force: true });
+  }
+}
+
+/**
+ * Discovers the browser entrypoints to bundle: every top-level `*.js` compiled
+ * into `dist/web` (excluding the generated version marker). Globbing the
+ * compiled output keeps the build project-agnostic — adding a page needs no
+ * change here.
+ * @returns Absolute-relative entrypoint paths under `dist/web`.
+ */
+async function webEntrypoints(): Promise<readonly string[]> {
+  const entries = await readdir(DIST_WEB_DIR, {
+    withFileTypes: true,
+  }).catch(() => []);
+  return entries
+    .filter(
+      entry =>
+        entry.isFile() &&
+        entry.name.endsWith(".js") &&
+        entry.name !== VERSION_MODULE
+    )
+    .map(entry => join(DIST_WEB_DIR, entry.name));
+}
+
+/**
+ * Uses Bun's browser bundler to collapse each page entrypoint into one
+ * deployable module. Bundling inlines transitive imports, so the Fabric
+ * serving node never fields a cold-boot burst of dozens of concurrent
+ * ES-module requests — which also makes per-import cache-busting moot.
+ * @returns Promise that resolves once every entrypoint is bundled.
+ */
+async function bundleWebEntrypoints(): Promise<void> {
+  const entrypoints = await webEntrypoints();
+  if (entrypoints.length > 0) {
+    await execFileAsync(
+      "bun",
+      [
+        "build",
+        ...entrypoints,
+        "--target=browser",
+        "--format=esm",
+        "--root",
+        DIST_WEB_DIR,
+        "--entry-naming",
+        "[dir]/[name].[ext]",
+        "--outdir",
+        HARPER_WEB_DIR,
+      ],
+      { maxBuffer: 1024 * 1024 * 10 }
+    );
+  }
+}
+
+/**
+ * Writes the package version into the browser web root at build time so the
+ * deploy freshness gate and smoke can assert the served build.
  * @returns Promise that resolves once the version module is refreshed.
  */
 async function writeGeneratedVersionModule(): Promise<void> {
@@ -36,33 +104,10 @@ async function writeGeneratedVersionModule(): Promise<void> {
     await readFile(PACKAGE_JSON, "utf8")
   ) as PackageManifest;
   const version = manifest.version || "0.0.0";
-
   await writeFile(
-    join("dist/web", "version.js"),
+    join(HARPER_WEB_DIR, VERSION_MODULE),
     `export const APP_VERSION = ${JSON.stringify(version)};\n`
   );
-}
-
-/**
- * Rewrites relative JavaScript imports so browsers pick up fresh deploy assets.
- * @param dir - Directory to process recursively.
- * @returns Promise that resolves after all nested modules are rewritten.
- */
-async function versionGeneratedWebModules(dir: string): Promise<void> {
-  for (const entry of await readdir(dir, { withFileTypes: true })) {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      await versionGeneratedWebModules(path);
-      continue;
-    }
-    if (!entry.isFile() || !entry.name.endsWith(".js")) continue;
-    const source = await readFile(path, "utf8");
-    const versioned = source.replace(JS_IMPORT_RE, (match, prefix, specifier, suffix) => {
-      if (specifier.includes("?")) return match;
-      return `${prefix}${specifier}?v=${WEB_ASSET_VERSION}${suffix}`;
-    });
-    if (versioned !== source) await writeFile(path, versioned);
-  }
 }
 
 /**
