@@ -55,6 +55,13 @@ const config: ViteUserConfig = {
         "**/__tests__/**",
         "**/__mocks__/**",
         "**/components/ui/**",
+        // Network-transport libraries: thin wrappers over the Harper ops API,
+        // REST, and the deployed cluster's HTTP surface. They are exercised by
+        // the deploy + smoke integration paths, not meaningfully unit-testable
+        // without a live cluster (same rationale as the CLI entrypoints above).
+        "src/lib/harper.ts",
+        "src/lib/rest.ts",
+        "src/lib/deploy-verify.ts",
         "src/build/**",
         "src/lib/brokercheck-employment.ts",
         "src/lib/brokercheck-load*.ts",
