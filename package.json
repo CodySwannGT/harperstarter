@@ -38,7 +38,7 @@
     "node": ">= 22.21.1"
   },
   "name": "your-project",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Harper Fabric application starter.",
   "private": true,
   "type": "module",
