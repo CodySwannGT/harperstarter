@@ -36,6 +36,12 @@ export default [
       // harper-fabric defaultHarperFabricIgnores.
       "harper-app/resource-*.js",
       "harper-app/resources.js",
+      // Same category: the build mirrors `dist/lib` → `harper-app/lib` so
+      // deployed resources can import shared helpers, and emits the browser
+      // bundle under `harper-app/web`. Both are gitignored build output, not
+      // source. Upstreamed to Lisa's harper-fabric defaultHarperFabricIgnores.
+      "harper-app/lib/**",
+      "harper-app/web/**",
     ],
   },
   {

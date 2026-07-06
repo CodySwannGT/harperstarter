@@ -1,5 +1,9 @@
 /**
  * Unit tests for the Harper connection-settings reader.
+ *
+ * Each case supplies explicit `HDB_TARGET_URL` + `HDB_ADMIN_USERNAME` +
+ * `HDB_ADMIN_PASSWORD` so `harperConfig` never falls through to keychain or
+ * credentials-file resolution, keeping the assertions deterministic.
  * @module tests/harper.test
  */
 import { describe, expect, it } from "vitest";
@@ -8,59 +12,48 @@ import { Buffer } from "node:buffer";
 
 import { harperConfig } from "../src/lib/harper.js";
 
-const CLUSTER_URL = "https://cluster.example.com";
+const TARGET = "https://cluster.example.com:9925";
 
 /**
- * Builds the expected `Basic` auth header for a `user:credential` pair.
- *
- * Base64 encoding is performed here (not by the unit under test) so the
- * assertion stays decoupled while keeping no pre-encoded literal in the file.
- * @param user - Username component of the credential pair.
- * @param credential - Credential component of the credential pair.
- * @returns The expected `Authorization` header value.
+ * Builds the expected base64 `user:credential` auth payload.
+ * @param user - Username component.
+ * @param credential - Credential component.
+ * @returns The expected base64 auth string.
  */
-function expectedAuthHeader(user: string, credential: string): string {
-  return `Basic ${Buffer.from(`${user}:${credential}`).toString("base64")}`;
+function expectedAuth(user: string, credential: string): string {
+  return Buffer.from(`${user}:${credential}`).toString("base64");
 }
 
 describe("harperConfig", () => {
-  it("uses the local bootstrap defaults when no env vars are set", () => {
-    const config = harperConfig({});
-    expect(config.baseUrl).toBe("http://127.0.0.1:9926");
-    expect(config.authHeader).toBe(expectedAuthHeader("admin", "admin-local"));
-  });
-
-  it("reads base URL and credentials from the provided environment", () => {
-    const username = "service-account";
-    const credential = "placeholder-test-credential";
+  it("uses explicit HDB_* settings for a hosted operations target", () => {
     const config = harperConfig({
-      HDB_BASE_URL: CLUSTER_URL,
-      HDB_ADMIN_USERNAME: username,
-      HDB_ADMIN_PASSWORD: credential,
+      HDB_TARGET_URL: TARGET,
+      HDB_ADMIN_USERNAME: "service-account",
+      HDB_ADMIN_PASSWORD: "placeholder-test-credential",
     });
-    expect(config.baseUrl).toBe(CLUSTER_URL);
-    expect(config.authHeader).toBe(expectedAuthHeader(username, credential));
+    expect(config.target).toBe(TARGET);
+    expect(config.auth).toBe(
+      expectedAuth("service-account", "placeholder-test-credential")
+    );
   });
 
-  it("strips a single trailing slash from the base URL", () => {
-    const config = harperConfig({ HDB_BASE_URL: `${CLUSTER_URL}/` });
-    expect(config.baseUrl).toBe(CLUSTER_URL);
+  it("strips trailing slashes from the operations target", () => {
+    const config = harperConfig({
+      HDB_TARGET_URL: `${TARGET}///`,
+      HDB_ADMIN_USERNAME: "svc",
+      HDB_ADMIN_PASSWORD: "secret",
+    });
+    expect(config.target).toBe(TARGET);
   });
 
-  it("strips multiple trailing slashes from the base URL", () => {
-    const config = harperConfig({ HDB_BASE_URL: `${CLUSTER_URL}///` });
-    expect(config.baseUrl).toBe(CLUSTER_URL);
-  });
-
-  it("leaves a base URL without a trailing slash unchanged", () => {
-    const config = harperConfig({ HDB_BASE_URL: CLUSTER_URL });
-    expect(config.baseUrl).toBe(CLUSTER_URL);
-  });
-
-  it("treats an empty HDB_BASE_URL as an explicit empty base URL", () => {
-    // Nullish coalescing only substitutes the default for `undefined`/`null`,
-    // so an explicit empty string is preserved (matching the original reader).
-    const config = harperConfig({ HDB_BASE_URL: "" });
-    expect(config.baseUrl).toBe("");
+  it("treats an explicit empty target as local unix-socket mode", () => {
+    const config = harperConfig({
+      HDB_TARGET_URL: "",
+      HDB_ADMIN_USERNAME: "svc",
+      HDB_ADMIN_PASSWORD: "secret",
+      HDB_ROOT: "/tmp/hdb",
+    });
+    expect(config.target).toBe("");
+    expect(config.socket).toBe("/tmp/hdb/operations-server");
   });
 });

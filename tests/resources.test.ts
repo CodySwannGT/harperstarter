@@ -40,17 +40,25 @@ beforeAll(() => {
 });
 
 describe("Hello resource", () => {
-  it("returns the first greeting that carries a message", async () => {
-    greetingTable.search.mockReturnValue(
-      asyncRows([{ id: "a" }, { message: "Hi there." }, { message: "Later." }])
-    );
+  it("returns the most-recent greeting's message", async () => {
+    greetingTable.search.mockReturnValue(asyncRows([{ message: "Newest." }]));
     const { Hello } = await import("../src/harper/resources.js");
     const result = await new Hello().get();
-    expect(result).toEqual({ message: "Hi there." });
+    expect(result).toEqual({ message: "Newest." });
   });
 
-  it("falls back to the default greeting when no row has a message", async () => {
-    greetingTable.search.mockReturnValue(asyncRows([{ id: "a" }, {}]));
+  it("bounds the query to a single most-recent row", async () => {
+    greetingTable.search.mockReturnValue(asyncRows([{ message: "Newest." }]));
+    const { Hello } = await import("../src/harper/resources.js");
+    await new Hello().get();
+    expect(greetingTable.search).toHaveBeenCalledWith({
+      sort: { attribute: "createdAt", descending: true },
+      limit: 1,
+    });
+  });
+
+  it("falls back to the default greeting when the latest row has no message", async () => {
+    greetingTable.search.mockReturnValue(asyncRows([{ id: "a" }]));
     const { Hello } = await import("../src/harper/resources.js");
     const result = await new Hello().get();
     expect(result).toEqual({ message: "Hello, world." });

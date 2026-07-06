@@ -1,67 +1,58 @@
-import { harperConfig } from "../lib/harper.js";
-
-/** A `Greeting` row returned by `GET /Greeting`. */
-interface GreetingRow {
-  readonly id: string;
-  readonly message: string;
-}
-
-/** Response body returned by the `/Hello` resource. */
-interface HelloPayload {
-  readonly message: string;
-}
-
+#!/usr/bin/env node
 /**
- * Fetches and validates the seeded `Greeting` rows from Harper.
- * @param config - Resolved Harper connection settings.
- * @returns Promise resolving to the non-empty list of Greeting rows.
+ * Table-generic verifier.
+ *
+ * Derives the table list from Harper's `describe_all` rather than a hardcoded
+ * list, then reports a row count per table plus a total. Adding a table to the
+ * schema needs no change here.
  */
-async function fetchGreetings(
-  config: ReturnType<typeof harperConfig>
-): Promise<ReadonlyArray<GreetingRow>> {
-  const response = await fetch(`${config.baseUrl}/Greeting/`, {
-    headers: { authorization: config.authHeader },
-  });
-  if (!response.ok) {
-    throw new Error(`GET /Greeting failed: ${response.status}`);
-  }
-  const rows = (await response.json()) as ReadonlyArray<GreetingRow>;
-  if (rows.length === 0) {
-    throw new Error(
-      "verify: no Greeting rows found. Run `bun run seed` first."
-    );
-  }
-  return rows;
+import { describeTarget, op, sql } from "../lib/harper.js";
+
+/** Harper `describe_all` payload: table names are keys under the database. */
+interface DescribeAllResult {
+  readonly data: Readonly<Record<string, unknown>>;
+}
+
+/** `COUNT(*)` row returned by Harper SQL. */
+interface CountRow {
+  readonly [key: string]: unknown;
+  readonly n: number;
 }
 
 /**
- * Fetches the `/Hello` resource and returns its rendered message.
- * @param config - Resolved Harper connection settings.
- * @returns Promise resolving to the greeting message served at `/Hello`.
+ * Returns strings in locale-aware alphabetical order.
+ * @param values - Values to order for stable reporting.
+ * @returns A sorted copy of the supplied strings.
  */
-async function fetchHelloMessage(
-  config: ReturnType<typeof harperConfig>
-): Promise<string> {
-  const helloResponse = await fetch(`${config.baseUrl}/Hello`);
-  if (!helloResponse.ok) {
-    throw new Error(`GET /Hello failed: ${helloResponse.status}`);
-  }
-  const hello = (await helloResponse.json()) as HelloPayload;
-  return hello.message;
+function sortStrings(values: Iterable<string>): readonly string[] {
+  return [...values].sort((a, b) => a.localeCompare(b));
 }
 
 /**
- * Verifies the local Harper deployment by checking the seeded greetings and
- * the `/Hello` resource, logging a human-readable summary.
- * @returns Promise that resolves once verification has completed.
+ * Counts rows in one table, printing a padded line.
+ * @param table - Table name in the `data` database.
+ * @returns The table's row count.
+ */
+async function countTable(table: string): Promise<number> {
+  const rows = await sql<CountRow>(`SELECT COUNT(*) AS n FROM data.${table}`);
+  const n = rows[0]?.n ?? 0;
+  console.log(`  ${table.padEnd(35)} ${String(n).padStart(4)}`);
+  return n;
+}
+
+/**
+ * Lists tables via `describe_all` and reports a row count for each.
+ * @returns Resolves once the count report has printed.
  */
 async function main(): Promise<void> {
-  const config = harperConfig();
-  const rows = await fetchGreetings(config);
-  const helloMessage = await fetchHelloMessage(config);
-  console.log(`verify: found ${rows.length} Greeting row(s)`);
-  for (const row of rows) console.log(`  - ${row.id}: ${row.message}`);
-  console.log(`verify: /Hello → ${helloMessage}`);
+  const described = await op<DescribeAllResult>({ operation: "describe_all" });
+  const tables = sortStrings(Object.keys(described.data ?? {}));
+  const counts = await Promise.all(tables.map(countTable));
+  const total = counts.reduce((sum, count) => sum + count, 0);
+  console.log(`  ${"TOTAL".padEnd(35)} ${String(total).padStart(4)}`);
 }
 
+console.error(`[verify] target: ${describeTarget()}`);
+console.log("\n══ Row counts per table ═════════════════════════════════");
 await main();
+console.log("\nverify complete");

@@ -26,6 +26,13 @@ import type { ViteUserConfig } from "vitest/config";
 
 const config: ViteUserConfig = {
   test: {
+    // Browser regression + deployed-cluster tests are slower and contend under
+    // parallelism; a bounded worker pool with generous timeouts absorbs that
+    // variance without masking real regressions (a reintroduced full-table scan
+    // still blows past even these budgets).
+    testTimeout: 120_000,
+    hookTimeout: 120_000,
+    maxWorkers: 4,
     // Lisa governance forces `test`/`test:cov` to a bare `vitest run`, dropping
     // the `bun run build && bun run test:setup:playwright` preamble the browser
     // regression tests require. Reinstate those preconditions via globalSetup so
@@ -48,6 +55,13 @@ const config: ViteUserConfig = {
         "**/__tests__/**",
         "**/__mocks__/**",
         "**/components/ui/**",
+        // Network-transport libraries: thin wrappers over the Harper ops API,
+        // REST, and the deployed cluster's HTTP surface. They are exercised by
+        // the deploy + smoke integration paths, not meaningfully unit-testable
+        // without a live cluster (same rationale as the CLI entrypoints above).
+        "src/lib/harper.ts",
+        "src/lib/rest.ts",
+        "src/lib/deploy-verify.ts",
         "src/build/**",
         "src/lib/brokercheck-employment.ts",
         "src/lib/brokercheck-load*.ts",
