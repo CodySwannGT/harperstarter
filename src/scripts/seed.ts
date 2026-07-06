@@ -1,44 +1,25 @@
-import { readFile } from "node:fs/promises";
-import { harperConfig } from "../lib/harper.js";
-
-/** A single greeting entry in the seed file. */
-interface SeedGreeting {
-  readonly id: string;
-  readonly message: string;
-}
-
-/** Shape of `src/data/seed-data.json` consumed by the seeder. */
-interface SeedFile {
-  readonly greetings: ReadonlyArray<SeedGreeting>;
-}
-
+#!/usr/bin/env node
 /**
- * Seeds the local Harper `Greeting` table from `src/data/seed-data.json`.
- * @returns Promise that resolves once every greeting has been PUT.
+ * Table-generic seeder.
+ *
+ * Every top-level key in `src/data/seed-data.json` is treated as a Harper
+ * table name and every value as the rows to upsert into it, so adding a table
+ * to the seed file needs no code change here. Writes go through the operations
+ * API (`upsert`), which targets local Harper's Unix socket by default and a
+ * deployed cluster when `HARPER_CLUSTER_URL` + admin credentials are set.
  */
-async function main(): Promise<void> {
-  const config = harperConfig();
-  const seed = JSON.parse(
-    await readFile("src/data/seed-data.json", "utf8")
-  ) as SeedFile;
+import seedData from "../data/seed-data.json" with { type: "json" };
+import { describeTarget, upsert } from "../lib/harper.js";
 
-  for (const greeting of seed.greetings) {
-    const response = await fetch(`${config.baseUrl}/Greeting/${greeting.id}`, {
-      method: "PUT",
-      headers: {
-        "content-type": "application/json",
-        authorization: config.authHeader,
-      },
-      body: JSON.stringify(greeting),
-    });
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(
-        `seed PUT /Greeting/${greeting.id} failed: ${response.status} ${body}`
-      );
-    }
-    console.log(`seeded Greeting ${greeting.id}`);
-  }
+console.error(`[seed] target: ${describeTarget()}`);
+
+for (const [table, records] of Object.entries(seedData)) {
+  const rows = records as ReadonlyArray<Record<string, unknown>>;
+  const touched = await upsert(
+    table,
+    rows.map(row => ({ ...row }))
+  );
+  console.log(`  upsert ${table}: ${rows.length} (${touched} touched)`);
 }
 
-await main();
+console.log("\nseed complete");
