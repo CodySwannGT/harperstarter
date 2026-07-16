@@ -16,6 +16,7 @@
     "harper-app/resources.js",
     "harper-app/resource-*.js",
     "harper-app/web/**",
-    "harper-app/lib/**"
+    "harper-app/lib/**",
+    "harper-app/*.js"
   ]
 }
