@@ -1,7 +1,7 @@
 {
   "scripts": {
     "build": "tsc && node dist/build/build.js",
-    "postinstall": "[ -n \"$CI\" ] || node node_modules/@codyswann/lisa/dist/index.js --yes --skip-git-check . 2>/dev/null || true",
+    "postinstall": "[ -n \"$CI\" ] || LISA_BOOTSTRAP=1 node node_modules/@codyswann/lisa/dist/index.js --yes --skip-git-check . 2>/dev/null || true",
     "test:integration": "vitest run tests/integration --passWithNoTests",
     "seed": "bun run build && node dist/scripts/seed.js",
     "seed:rest": "bun run build && node dist/scripts/seed_via_rest.js",
@@ -52,7 +52,7 @@
   },
   "devDependencies": {
     "@ast-grep/cli": "^0.40.4",
-    "@codyswann/lisa": "^2.191.5",
+    "@codyswann/lisa": "^2.217.1",
     "@commitlint/cli": "^20.3.1",
     "@commitlint/config-conventional": "^20.3.1",
     "@eslint-community/eslint-plugin-eslint-comments": "^4.5.0",
@@ -91,7 +91,8 @@
     "vite": ">=8.0.16",
     "form-data": ">=4.0.6",
     "multer": ">=2.2.0",
-    "undici": ">=6.27.0"
+    "undici": ">=6.27.0",
+    "systeminformation": ">=5.27.14"
   },
   "overrides": {
     "@isaacs/brace-expansion": "^5.0.1",
@@ -103,7 +104,8 @@
     "vite": "^8.0.16",
     "form-data": ">=4.0.6",
     "multer": ">=2.2.0",
-    "undici": ">=6.27.0"
+    "undici": ">=6.27.0",
+    "systeminformation": ">=5.27.14"
   },
   "trustedDependencies": [
     "@ast-grep/cli",
